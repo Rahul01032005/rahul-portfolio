@@ -15,6 +15,7 @@ const navItems = [
 export default function SideDock() {
   const [activeSection, setActiveSection] = useState('home');
   const [hoveredItem, setHoveredItem] = useState(null);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -42,7 +43,8 @@ export default function SideDock() {
     e.preventDefault();
     const target = document.querySelector(href);
     if (target) {
-      const yOffset = -40; // Offset height
+      // Dynamic offset: desktop side dock doesn't need to clear a header, but mobile top header is 64px
+      const yOffset = window.innerWidth >= 1024 ? -40 : -80; 
       const y = target.getBoundingClientRect().top + window.pageYOffset + yOffset;
       window.scrollTo({ top: y, behavior: 'smooth' });
       setActiveSection(href.replace('#', ''));
@@ -111,38 +113,90 @@ export default function SideDock() {
         })}
       </motion.div>
 
-      {/* Mobile Floating Bottom Dock */}
-      <motion.div 
-        initial={{ opacity: 0, y: 40, x: "-50%" }}
-        animate={{ opacity: 1, y: 0, x: "-50%" }}
-        transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex lg:hidden items-center py-2.5 px-4 rounded-full border border-accent-cyan/15 bg-black/85 backdrop-blur-xl gap-4 md:gap-6 shadow-[0_4px_30px_rgba(0,0,0,0.9)] max-w-[90vw] overflow-x-auto scrollbar-none"
-      >
-        {navItems.map((item) => {
-          const isActive = activeSection === item.name.toLowerCase();
-          return (
-            <a
-              key={item.name}
-              href={item.href}
-              onClick={(e) => handleLinkClick(e, item.href)}
-              className={`relative p-3 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer ${
-                isActive 
-                  ? 'text-accent-cyan bg-accent-blue/15 border border-accent-cyan/25' 
-                  : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-              }`}
-            >
-              <span className={`relative z-10 ${isActive ? 'text-accent-cyan' : 'text-slate-400'}`}>
-                {item.icon}
-              </span>
+      {/* Mobile Top Header Bar */}
+      <div className="fixed top-0 left-0 right-0 h-16 z-50 flex lg:hidden items-center justify-between px-6 bg-black/85 backdrop-blur-md border-b border-accent-cyan/10">
+        <a 
+          href="#home" 
+          onClick={(e) => handleLinkClick(e, '#home')}
+          className="text-base font-bold font-display text-white tracking-wider cursor-pointer select-none"
+        >
+          <span className="text-accent-cyan font-extrabold">&lt;</span>
+          <span className="font-sans">Rahul E</span>
+          <span className="text-accent-cyan font-extrabold">/&gt;</span>
+        </a>
 
-              {/* Active indication dot */}
-              {isActive && (
-                <span className="absolute -bottom-1.5 w-1 h-1 bg-accent-cyan rounded-full animate-pulse shadow-[0_0_6px_rgba(0,210,255,0.8)]" />
-              )}
-            </a>
-          );
-        })}
-      </motion.div>
+        {/* Animated Hamburger Trigger Button */}
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="text-slate-400 hover:text-white p-2.5 rounded-lg bg-white/5 border border-white/10 focus:outline-none transition-colors cursor-pointer"
+          aria-label="Toggle menu"
+        >
+          <div className="w-5 h-4 relative flex items-center justify-center">
+            <span className={`absolute w-5 h-[1.5px] bg-current transform transition-all duration-300 ${isOpen ? 'rotate-45' : '-translate-y-1.5'}`} />
+            <span className={`absolute w-5 h-[1.5px] bg-current transition-all duration-300 ${isOpen ? 'opacity-0' : 'opacity-100'}`} />
+            <span className={`absolute w-5 h-[1.5px] bg-current transform transition-all duration-300 ${isOpen ? '-rotate-45' : 'translate-y-1.5'}`} />
+          </div>
+        </button>
+      </div>
+
+      {/* Mobile Navigation Menu Drawer Overlay */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 top-16 z-40 flex lg:hidden flex-col items-center justify-center bg-black/95 backdrop-blur-2xl px-6 py-10"
+          >
+            {/* Background micro grid */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,210,255,0.01)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,210,255,0.01)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-accent-sky/5 rounded-full blur-[100px] pointer-events-none" />
+
+            {/* Nav list with staggering items */}
+            <div className="flex flex-col items-center space-y-5 w-full max-w-sm z-10">
+              {navItems.map((item, idx) => {
+                const isActive = activeSection === item.name.toLowerCase();
+                return (
+                  <motion.a
+                    key={item.name}
+                    href={item.href}
+                    onClick={(e) => {
+                      handleLinkClick(e, item.href);
+                      setIsOpen(false);
+                    }}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    className={`w-full py-3.5 px-6 rounded-xl font-mono text-xs uppercase tracking-widest flex items-center justify-between border transition-all duration-300 ${
+                      isActive
+                        ? 'bg-accent-blue/15 border-accent-cyan/35 text-white shadow-[0_0_15px_rgba(0,210,255,0.15)] font-bold'
+                        : 'bg-black/60 border-white/5 text-slate-400 hover:text-white hover:border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <span className={`${isActive ? 'text-accent-cyan' : 'text-slate-500'}`}>
+                        {item.icon}
+                      </span>
+                      <span>{item.name}</span>
+                    </div>
+                    {isActive ? (
+                      <span className="text-[10px] font-mono text-accent-cyan animate-pulse">&gt;&gt;</span>
+                    ) : (
+                      <span className="text-[10px] font-mono text-slate-700">&gt;</span>
+                    )}
+                  </motion.a>
+                );
+              })}
+            </div>
+
+            {/* Menu footer branding */}
+            <div className="mt-auto text-[9px] font-mono text-slate-600 uppercase tracking-widest z-10 select-none">
+              SYS_NAV_MENU_CONNECTED
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
