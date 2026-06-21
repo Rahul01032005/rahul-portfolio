@@ -67,7 +67,7 @@ export default function AIChatbox() {
   
   const chatEndRef = useRef(null);
   const clickTimeoutRef = useRef(null);
-  const physicsRef = useRef({ d: 0, dir: -1, speed: 2.5 });
+  const physicsRef = useRef({ d: 0, dir: -1, speed: 1.6 });
 
   const theme = THEMES[themeName];
 
@@ -108,7 +108,7 @@ export default function AIChatbox() {
     physicsRef.current = {
       d: width + height,
       dir: -1, // move counter-clockwise (up/left) initially
-      speed: 2.5
+      speed: 1.6
     };
     
     const coords = getCoordinatesFromD(width + height, width, height, minX, minY, maxX, maxY);
