@@ -11,6 +11,7 @@ import EducationTimeline from './components/EducationTimeline';
 import AchievementVault from './components/AchievementVault';
 import ContactTerminal from './components/ContactTerminal';
 import Footer from './components/Footer';
+import AIChatbox from './components/AIChatbox';
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -49,8 +50,12 @@ export default function App() {
 
           {/* Footer Branding */}
           <Footer />
+
+          {/* Interactive AI Resume Chatbox */}
+          <AIChatbox />
         </motion.div>
       )}
     </>
   );
 }
+

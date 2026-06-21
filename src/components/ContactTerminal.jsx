@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaTerminal, FaEnvelope, FaPhone, FaMapMarkerAlt, FaGithub, FaLinkedin, FaPaperPlane, FaCheckCircle, FaSpinner } from 'react-icons/fa';
+import emailjs from '@emailjs/browser';
 
 export default function ContactTerminal() {
   const formRef = useRef(null);
@@ -41,10 +42,38 @@ export default function ContactTerminal() {
     }
 
     setSubmitStatus('sending');
-    setTimeout(() => {
-      setSubmitStatus('success');
-      setFormData({ name: '', email: '', message: '' });
-    }, 2000);
+
+    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+    // Check if configuration is set, otherwise fallback to mock success
+    if (!serviceId || !templateId || !publicKey || serviceId === 'your_service_id_here') {
+      console.warn("EmailJS credentials are not configured in .env. Falling back to mock submission.");
+      setTimeout(() => {
+        setSubmitStatus('success');
+        setFormData({ name: '', email: '', message: '' });
+      }, 1500);
+      return;
+    }
+
+    try {
+      const result = await emailjs.sendForm(
+        serviceId,
+        templateId,
+        formRef.current,
+        publicKey
+      );
+      if (result.status === 200 || result.text === 'OK') {
+        setSubmitStatus('success');
+        setFormData({ name: '', email: '', message: '' });
+      } else {
+        throw new Error(result.text || 'Failed to send message');
+      }
+    } catch (error) {
+      console.error('EmailJS transmission failed:', error);
+      setSubmitStatus('error');
+    }
   };
 
   return (
@@ -63,6 +92,23 @@ export default function ContactTerminal() {
             Connect Terminal
           </h2>
           <div className="h-1 w-20 bg-accent-cyan mt-4 rounded-full" />
+        </div>
+
+        {/* AI Assistant Banner */}
+        <div className="max-w-2xl mx-auto mb-12 text-center bg-black/60 border border-accent-cyan/15 hover:border-accent-cyan/30 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-xs shadow-[0_0_15px_rgba(0,210,255,0.05)] transition-all duration-300">
+          <div className="flex items-center space-x-3.5 text-left">
+            <span className="text-2xl animate-bounce">🤖</span>
+            <div>
+              <p className="text-white font-bold text-[13px] mb-0.5">Have a question about Rahul's qualifications?</p>
+              <p className="text-slate-400 text-[10px]">Chat directly with Rock, our interactive AI resume assistant!</p>
+            </div>
+          </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-ai-chatbox'))}
+            className="px-4 py-2.5 bg-accent-cyan/10 hover:bg-accent-cyan/20 border border-accent-cyan/35 hover:shadow-[0_0_12px_rgba(0,210,255,0.25)] text-accent-cyan font-bold rounded-xl cursor-pointer transition-all duration-300 uppercase tracking-wider text-[10px] whitespace-nowrap"
+          >
+            [ Ask Rock ]
+          </button>
         </div>
 
         {/* 2-Column Desktop Grid / Stacked Mobile Grid */}
@@ -166,6 +212,28 @@ export default function ContactTerminal() {
                       className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 rounded font-semibold text-[10px] uppercase tracking-wider cursor-pointer transition-colors duration-300"
                     >
                       [ Transmit New Signal ]
+                    </button>
+                  </motion.div>
+                ) : submitStatus === 'error' ? (
+                  // Error layout
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex flex-col items-center justify-center py-16 text-center space-y-4 font-mono text-xs"
+                  >
+                    <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-full animate-pulse flex items-center justify-center w-12 h-12">
+                      <span className="text-xl font-bold font-sans">!</span>
+                    </div>
+                    <h4 className="text-base font-bold text-white uppercase tracking-wider">Transmission Failed</h4>
+                    <p className="text-slate-400 max-w-xs leading-relaxed text-[11.5px]">
+                      An error occurred while compiling and transmitting your query. Please check your credentials or network and try again.
+                    </p>
+                    <button
+                      onClick={() => setSubmitStatus('idle')}
+                      className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 rounded font-semibold text-[10px] uppercase tracking-wider cursor-pointer transition-colors duration-300"
+                    >
+                      [ Retransmit Signal ]
                     </button>
                   </motion.div>
                 ) : (
