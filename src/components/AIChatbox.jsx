@@ -586,7 +586,6 @@ export default function AIChatbox() {
         {isOpen && (
           <div className="fixed bottom-6 right-6 z-50">
             <motion.div
-              layoutId="avatar-box"
               initial={{ opacity: 0, scale: 0.9, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 30 }}
@@ -774,7 +773,6 @@ export default function AIChatbox() {
           >
             {/* Bouncing Avatar button */}
             <motion.div
-              layoutId="avatar-box"
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {
