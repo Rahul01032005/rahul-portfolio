@@ -61,29 +61,58 @@ export default function AIChatbox() {
   const [inputValue, setInputValue] = useState('');
   const [botState, setBotState] = useState('idle'); // 'idle', 'thinking', 'talking', 'dizzy', 'happy'
   const [clickCount, setClickCount] = useState(0);
-  const [isTooltipVisible, setIsTooltipVisible] = useState(true);
   
-  // Physics states for closed avatar wandering
+  // Coordinate position state for closed avatar wandering
   const [pos, setPos] = useState({ x: 500, y: 500 });
-  const [vel, setVel] = useState({ x: -2.2, y: -2.2 });
   
   const chatEndRef = useRef(null);
   const clickTimeoutRef = useRef(null);
-  const physicsRef = useRef({ x: 500, y: 500, vx: -2.2, vy: -2.2 });
+  const physicsRef = useRef({ d: 0, dir: -1, speed: 2.5 });
 
   const theme = THEMES[themeName];
 
+  // Helper function to map 1D perimeter distance back to 2D coordinates on edges
+  const getCoordinatesFromD = (d, width, height, minX, minY, maxX, maxY) => {
+    const total = 2 * (width + height);
+    let wrapped = d % total;
+    if (wrapped < 0) wrapped += total;
+
+    if (wrapped < width) {
+      // Top Edge: left-to-right
+      return { x: minX + wrapped, y: minY };
+    } else if (wrapped < width + height) {
+      // Right Edge: top-to-bottom
+      return { x: maxX, y: minY + (wrapped - width) };
+    } else if (wrapped < 2 * width + height) {
+      // Bottom Edge: right-to-left
+      return { x: maxX - (wrapped - width - height), y: maxY };
+    } else {
+      // Left Edge: bottom-to-top
+      return { x: minX, y: maxY - (wrapped - 2 * width - height) };
+    }
+  };
+
   // Initialize physics position to bottom right once window context exists
   useEffect(() => {
-    const initialX = window.innerWidth - 80;
-    const initialY = window.innerHeight - 80;
-    setPos({ x: initialX, y: initialY });
+    const size = 56;
+    const pad = 20;
+    const minX = pad;
+    const maxX = Math.max(minX + 10, window.innerWidth - size - pad);
+    const minY = pad;
+    const maxY = Math.max(minY + 10, window.innerHeight - size - pad);
+    
+    const width = maxX - minX;
+    const height = maxY - minY;
+    
+    // Start at bottom right corner (width + height) along perimeter path
     physicsRef.current = {
-      x: initialX,
-      y: initialY,
-      vx: -2.2,
-      vy: -2.2
+      d: width + height,
+      dir: -1, // move counter-clockwise (up/left) initially
+      speed: 2.5
     };
+    
+    const coords = getCoordinatesFromD(width + height, width, height, minX, minY, maxX, maxY);
+    setPos(coords);
   }, []);
 
   // Synthesize audio feedback using Web Audio API
@@ -161,14 +190,6 @@ export default function AIChatbox() {
     }
   };
 
-  // Hide initial floating tooltip after 10 seconds
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsTooltipVisible(false);
-    }, 10000);
-    return () => clearTimeout(timer);
-  }, []);
-
   // Listen for custom event to open the chatbox remotely
   useEffect(() => {
     const handleOpen = () => {
@@ -186,62 +207,41 @@ export default function AIChatbox() {
     }
   }, [messages, isOpen]);
 
-  // physics loop for moving closed avatar trigger randomly/bouncing around the screen
+  // physics loop for moving closed avatar trigger strictly along edges
   useEffect(() => {
     if (isOpen) return;
-
-    // Constrain current values on screen bounds change
-    physicsRef.current.x = Math.max(20, Math.min(physicsRef.current.x, window.innerWidth - 80));
-    physicsRef.current.y = Math.max(20, Math.min(physicsRef.current.y, window.innerHeight - 80));
 
     let animationFrameId;
 
     const animate = () => {
       const p = physicsRef.current;
-      p.x += p.vx;
-      p.y += p.vy;
-
+      
       const size = 56; // size of avatar
       const pad = 20;
-
       const minX = pad;
       const maxX = Math.max(minX + 10, window.innerWidth - size - pad);
       const minY = pad;
       const maxY = Math.max(minY + 10, window.innerHeight - size - pad);
+      
+      const width = maxX - minX;
+      const height = maxY - minY;
 
-      // Bounce logic
-      if (p.x < minX) {
-        p.x = minX;
-        p.vx = Math.abs(p.vx);
-      } else if (p.x > maxX) {
-        p.x = maxX;
-        p.vx = -Math.abs(p.vx);
-      }
+      // Update 1D position
+      p.d += p.dir * p.speed;
 
-      if (p.y < minY) {
-        p.y = minY;
-        p.vy = Math.abs(p.vy);
-      } else if (p.y > maxY) {
-        p.y = maxY;
-        p.vy = -Math.abs(p.vy);
-      }
+      // Wrap d
+      const total = 2 * (width + height);
+      p.d = p.d % total;
+      if (p.d < 0) p.d += total;
 
-      // 0.8% chance per frame to change velocity (wandering walk feel)
+      // 0.8% chance per frame to reverse direction (wandering perimeter feel)
       if (Math.random() < 0.008) {
-        const angle = (Math.random() - 0.5) * 0.5; // shift angle delta
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-        const newVx = p.vx * cos - p.vy * sin;
-        const newVy = p.vx * sin + p.vy * cos;
-        
-        const speed = Math.sqrt(newVx * newVx + newVy * newVy);
-        const targetSpeed = 2.0 + Math.random() * 1.5; // speed range [2.0, 3.5]
-        
-        p.vx = (newVx / speed) * targetSpeed;
-        p.vy = (newVy / speed) * targetSpeed;
+        p.dir = -p.dir;
       }
 
-      setPos({ x: p.x, y: p.y });
+      const coords = getCoordinatesFromD(p.d, width, height, minX, minY, maxX, maxY);
+      setPos(coords);
+      
       animationFrameId = requestAnimationFrame(animate);
     };
 
@@ -292,7 +292,7 @@ export default function AIChatbox() {
     });
   };
 
-  // Local Keyword-based QA Search Engine with improved relative parsing
+  // Local Keyword-based QA Search Engine with relative parsing
   const matchLocalResponse = (query) => {
     const q = query.toLowerCase();
     
@@ -761,7 +761,7 @@ export default function AIChatbox() {
           </div>
         )}
 
-        {/* Closed Avatar Trigger (Moves randomly/bounces around the screen) */}
+        {/* Closed Avatar Trigger (Moves randomly/bounces strictly along screen edges) */}
         {!isOpen && (
           <div 
             style={{ 
@@ -772,32 +772,6 @@ export default function AIChatbox() {
               pointerEvents: 'auto' 
             }}
           >
-            {/* Floating Tooltip helper */}
-            {isTooltipVisible && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="absolute bottom-16 right-[-80px] w-52 p-3 bg-black border border-accent-cyan/20 text-[11px] text-slate-300 font-mono rounded-xl shadow-2xl z-40 text-center select-none"
-              >
-                <div className="absolute bottom-[-6px] left-1/2 transform -translate-x-1/2 w-3 h-3 bg-black border-r border-b border-accent-cyan/20 rotate-45" />
-                <div className="flex items-center justify-center space-x-1.5 text-accent-cyan font-bold mb-1">
-                  <FaRobot className="animate-bounce" style={{ color: theme.primary }} />
-                  <span style={{ color: theme.primary }}>ROCK ONLINE!</span>
-                </div>
-                Ask me about Rahul's resume! ✨💬
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsTooltipVisible(false);
-                  }}
-                  className="absolute top-1 right-1 text-slate-500 hover:text-white cursor-pointer"
-                >
-                  <FaTimes size={8} />
-                </button>
-              </motion.div>
-            )}
-
             {/* Bouncing Avatar button */}
             <motion.div
               layoutId="avatar-box"
